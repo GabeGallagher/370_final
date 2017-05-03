@@ -1,4 +1,4 @@
-//FRAGMENT SHADER
+//SUN FRAGMENT SHADER
 
 #version 450
 
@@ -37,7 +37,7 @@ void main ()
 	vec3 direction_to_light_eye = normalize (distance_to_light_eye);
 	float dot_prod = dot (direction_to_light_eye, normal_eye);
 	dot_prod = max (dot_prod, 0.0);
-	vec3 Id = Ld * Kd * dot_prod; // final diffuse intensity
+	vec3 Id = (Ld * Kd * dot_prod) * 15.0f; // final diffuse intensity
 	
 	// specular intensity
 	vec3 surface_to_viewer_eye = normalize (-position_eye);

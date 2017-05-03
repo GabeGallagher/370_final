@@ -1,7 +1,10 @@
-/***************
- * Make Planets*
- * matt h      *
- * ************/
+/********************
+ * Make Planets		*
+ *					*
+ * Matt Hivner		*
+ * Gabe Gallagher	*
+ * Austin Ray		*
+ * *****************/
 
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
@@ -45,6 +48,23 @@ struct solarObject {
     mat4 model_mat;
     //GLuint vao;
 } sun, merc, ven, ear, moon, mars, jup, sat, ura, nep, pluto;
+
+struct Light
+{
+	glm::vec3 position;
+	glm::vec3 intensities;
+};
+
+GLfloat lightBuffer[] = {
+	//  X     Y     Z       U     V          Normal
+	//bottom
+	-1.0f,-1.0f,-1.0f,   0.0f, 0.0f,   0.0f, -1.0f, 0.0f,
+	1.0f,-1.0f,-1.0f,   1.0f, 0.0f,   0.0f, -1.0f, 0.0f,
+	-1.0f,-1.0f, 1.0f,   0.0f, 1.0f,   0.0f, -1.0f, 0.0f,
+	1.0f,-1.0f,-1.0f,   1.0f, 0.0f,   0.0f, -1.0f, 0.0f,
+	1.0f,-1.0f, 1.0f,   1.0f, 1.0f,   0.0f, -1.0f, 0.0f,
+	-1.0f,-1.0f, 1.0f,   0.0f, 1.0f,   0.0f, -1.0f, 0.0f
+};
 
 int countLabel(std::string mName, char const *label){
     int numLab = 0;
@@ -213,7 +233,7 @@ GLuint cubeVAO = 0;
 GLuint cubeVBO = 0;
 void RenderCube()
 {
-	GLfloat cubeModifier = 10.0; //Increases the size of the cube vertices by a given amount
+	GLfloat cubeModifier = 0.1; //Increases the size of the cube vertices by a given amount
 	// Initialize (if necessary)
 	if (cubeVAO == 0)
 	{
@@ -333,6 +353,7 @@ void RenderScene(GLuint &shader)
 }
 
 int main(){
+	Light gLight;
     
     restart_gl_log();
     start_gl();
@@ -407,13 +428,14 @@ int main(){
     glGenVertexArrays(1, &vao);
     glBindVertexArray(vao);
     glBindBuffer(GL_ARRAY_BUFFER, points_vbo);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, NULL);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), NULL);
     glBindBuffer(GL_ARRAY_BUFFER, normals_vbo);
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, NULL);
     glEnableVertexAttribArray(0);
     glEnableVertexAttribArray(1);
 
-    GLuint shader = create_programme_from_files(
+	//Remember to change these paths to run on local machine
+    GLuint sunShader = create_programme_from_files(
 		"C:/Users/Gabe/Documents/Visual Studio 2015/Projects/Gallagher_370_Final/Gallagher_370_Final/MattProject/MattProject/vs.glsl",
 		"C:/Users/Gabe/Documents/Visual Studio 2015/Projects/Gallagher_370_Final/Gallagher_370_Final/MattProject/MattProject/fs.glsl"
 	);
@@ -433,6 +455,7 @@ int main(){
 		"C:/Users/Gabe/Documents/Visual Studio 2015/Projects/Gallagher_370_Final/Gallagher_370_Final/MattProject/MattProject/merc_vs.glsl",
 		"C:/Users/Gabe/Documents/Visual Studio 2015/Projects/Gallagher_370_Final/Gallagher_370_Final/MattProject/MattProject/merc_fs.glsl"
 	);
+	//Hope you didn't forget to change the paths...
     
     // input variables
     float near = 0.1f; //clipping plane
@@ -461,18 +484,18 @@ int main(){
     mat4 R = rotate_y_deg(identity_mat4(), -cam_yaw);
     mat4 view_mat = R * T;
 
-    //Sun shader definitions
-    glUseProgram(shader);
-    int view_mat_location = glGetUniformLocation(shader, "view_mat");
+    //Sun sunShader definitions
+    glUseProgram(sunShader);
+    int view_mat_location = glGetUniformLocation(sunShader, "view_mat");
     glUniformMatrix4fv(view_mat_location, 1, GL_FALSE, view_mat.m);
-    int proj_mat_location = glGetUniformLocation(shader, "projection_mat");
+    int proj_mat_location = glGetUniformLocation(sunShader, "projection_mat");
     glUniformMatrix4fv(proj_mat_location, 1, GL_FALSE, proj_mat);
-    //int model_mat_location = glGetUniformLocation(shader, "model_mat");
+    //int model_mat_location = glGetUniformLocation(sunShader, "model_mat");
     //glUniformMatrix4fv(model_mat_location, 1, GL_FALSE, model_mat.m);
-    int sun_mat_location = glGetUniformLocation(shader, "sun_model_mat");
+    int sun_mat_location = glGetUniformLocation(sunShader, "sun_model_mat");
     glUniformMatrix4fv(sun_mat_location, 1, GL_FALSE, sun.model_mat.m);
 
-	//Mercury shader definitions
+	//Mercury sunShader definitions
     glUseProgram(mercShader);
     int merc_view_mat_location = glGetUniformLocation(mercShader, "view_mat");
     glUniformMatrix4fv(merc_view_mat_location, 1, GL_FALSE, view_mat.m);
@@ -575,23 +598,23 @@ int main(){
 		////Begin render scene as normal with shadow mapping (using depth cubemap)
 		glViewport(0, 0, g_gl_width, g_gl_height);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        glUseProgram(shader);
+        glUseProgram(sunShader);
 
 		///* This code relates to camera.h, glad.h, and khrplatform.h, which were throwing unresolved external
 		//symbol errors which I don't want to deal with
 
 		//glm::mat4 projection = glm::perspective(camera.Zoom, (float)g_gl_width / (float)g_gl_height, 0.1f, 100.0f);
 		//glm::mat4 view = camera.GetViewMatrix();
-		//glUniformMatrix4fv(glGetUniformLocation(shader, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
-		//glUniformMatrix4fv(glGetUniformLocation(shader, "view"), 1, GL_FALSE, glm::value_ptr(view));*/
+		//glUniformMatrix4fv(glGetUniformLocation(sunShader, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
+		//glUniformMatrix4fv(glGetUniformLocation(sunShader, "view"), 1, GL_FALSE, glm::value_ptr(view));*/
 
 		////Set light uniforms
-		//glUniform3fv(glGetUniformLocation(shader, "lightPos"), 1, &lightPos[0]);
-		//glUniform3fv(glGetUniformLocation(shader, "viewPos"), 1, &camera[0]);
+		//glUniform3fv(glGetUniformLocation(sunShader, "lightPos"), 1, &lightPos[0]);
+		//glUniform3fv(glGetUniformLocation(sunShader, "viewPos"), 1, &camera[0]);
 
 		////Bind cube map
 		glBindTexture(GL_TEXTURE_CUBE_MAP, depthCubeMap);
-		RenderScene(shader);
+		RenderScene(sunShader);
 
 		////////////////////////////////////////////////////////////////////////
 		// Draw Sun, planets, and possibly moons, Saturns rings, and asteroids//

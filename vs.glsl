@@ -1,4 +1,4 @@
-//VERTEX SHADER
+//SUN VERTEX SHADER
 
 #version 450
 
