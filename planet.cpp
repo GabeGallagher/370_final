@@ -7,26 +7,44 @@
 #include <GLFW/glfw3.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
+#include <string>
 #include <iostream>
+#include <vector>
 #include <math.h>
+#include <glm\glm.hpp>
+#include <glm\gtc\matrix_transform.hpp>
+#include <glm\gtc\type_ptr.hpp>
 #include "maths_funcs.h"
 #include "gl_utils.h"
+//#include "camera.h"
 #define _USE_MATH_DEFINES
 #define GL_LOG_FILE "gl.log"
 #define M_PI 3.14159265359
+
+using namespace std;
 
 //window size
 int g_gl_width = 1600;
 int g_gl_height = 900;
 GLFWwindow* g_window = NULL;
+//end window size
+
+//Camera
+//Camera camera(glm::vec3(0.0f, 0.0f, 3.0f));
+GLfloat camera[3] = { 0.0f, 0.0f, 3.0f };
+//I attempted to use camera.h to bring in a camera for some more functionality. The class has
+//dependencies with glad.h and khrplatform. glad.h threw 10 unresolved external symbol
+//errors and I don't feel like fixing them right now.
+
+//Global variables
+GLboolean shadows = true;
 
 struct solarObject {
     GLfloat* points;
     GLint* faces;
     mat4 model_mat;
     //GLuint vao;
-} sun, merc, ven, ear, moon, mars, jup, sat, ura, nep ;
+} sun, merc, ven, ear, moon, mars, jup, sat, ura, nep, pluto;
 
 int countLabel(std::string mName, char const *label){
     int numLab = 0;
@@ -190,6 +208,130 @@ void computeVertNormals(GLfloat normals[], GLfloat verts[], int numVerts, GLint 
 	}
 }
 
+// RenderCube() Renders a 1x1 3D cube in NDC.
+GLuint cubeVAO = 0;
+GLuint cubeVBO = 0;
+void RenderCube()
+{
+	GLfloat cubeModifier = 10.0; //Increases the size of the cube vertices by a given amount
+	// Initialize (if necessary)
+	if (cubeVAO == 0)
+	{
+		GLfloat vertices[] = {
+			// Back face
+			-0.5f, -0.5f, -0.5f, 0.0f, 0.0f, -1.0f, 0.0f, 0.0f, // Bottom-left
+			0.5f, 0.5f, -0.5f, 0.0f, 0.0f, -1.0f, 1.0f, 1.0f, // top-right
+			0.5f, -0.5f, -0.5f, 0.0f, 0.0f, -1.0f, 1.0f, 0.0f, // bottom-right         
+			0.5f, 0.5f, -0.5f, 0.0f, 0.0f, -1.0f, 1.0f, 1.0f,  // top-right
+			-0.5f, -0.5f, -0.5f, 0.0f, 0.0f, -1.0f, 0.0f, 0.0f,  // bottom-left
+			-0.5f, 0.5f, -0.5f, 0.0f, 0.0f, -1.0f, 0.0f, 1.0f,// top-left
+
+			// Front face
+			-0.5f, -0.5f, 0.5f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, // bottom-left
+			0.5f, -0.5f, 0.5f, 0.0f, 0.0f, 1.0f, 1.0f, 0.0f,  // bottom-right
+			0.5f, 0.5f, 0.5f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f,  // top-right
+			0.5f, 0.5f, 0.5f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, // top-right
+			-0.5f, 0.5f, 0.5f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f,  // top-left
+			-0.5f, -0.5f, 0.5f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f,  // bottom-left
+
+			// Left face
+			-0.5f, 0.5f, 0.5f, -1.0f, 0.0f, 0.0f, 1.0f, 0.0f, // top-right
+			-0.5f, 0.5f, -0.5f, -1.0f, 0.0f, 0.0f, 1.0f, 1.0f, // top-left
+			-0.5f, -0.5f, -0.5f, -1.0f, 0.0f, 0.0f, 0.0f, 1.0f,  // bottom-left
+			-0.5f, -0.5f, -0.5f, -1.0f, 0.0f, 0.0f, 0.0f, 1.0f, // bottom-left
+			-0.5f, -0.5f, 0.5f, -1.0f, 0.0f, 0.0f, 0.0f, 0.0f,  // bottom-right
+			-0.5f, 0.5f, 0.5f, -1.0f, 0.0f, 0.0f, 1.0f, 0.0f, // top-right
+
+			// Right face
+			0.5f, 0.5f, 0.5f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, // top-left
+			0.5f, -0.5f, -0.5f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, // bottom-right
+			0.5f, 0.5f, -0.5f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f, // top-right         
+			0.5f, -0.5f, -0.5f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f,  // bottom-right
+			0.5f, 0.5f, 0.5f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f,  // top-left
+			0.5f, -0.5f, 0.5f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, // bottom-left    
+
+			// Bottom face
+			-0.5f, -0.5f, -0.5f, 0.0f, -1.0f, 0.0f, 0.0f, 1.0f, // top-right
+			0.5f, -0.5f, -0.5f, 0.0f, -1.0f, 0.0f, 1.0f, 1.0f, // top-left
+			0.5f, -0.5f, 0.5f, 0.0f, -1.0f, 0.0f, 1.0f, 0.0f,// bottom-left
+			0.5f, -0.5f, 0.5f, 0.0f, -1.0f, 0.0f, 1.0f, 0.0f, // bottom-left
+			-0.5f, -0.5f, 0.5f, 0.0f, -1.0f, 0.0f, 0.0f, 0.0f, // bottom-right
+			-0.5f, -0.5f, -0.5f, 0.0f, -1.0f, 0.0f, 0.0f, 1.0f, // top-right
+
+			// Top face
+			-0.5f, 0.5f, -0.5f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f,// top-left
+			0.5f, 0.5f, 0.5f, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f, // bottom-right
+			0.5f, 0.5f, -0.5f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f, // top-right     
+			0.5f, 0.5f, 0.5f, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f, // bottom-right
+			-0.5f, 0.5f, -0.5f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f,// top-left
+			-0.5f, 0.5f, 0.5f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f // bottom-left        
+		};
+
+		for (int i = 0; i < 288; i++)	//multiplies each point by value of cube modifier.
+										//There are 288 points in total: 8 x 6 x 6
+		{
+			vertices[i] *= cubeModifier;
+		}
+
+		glGenVertexArrays(1, &cubeVAO);
+		glGenBuffers(1, &cubeVBO);
+		// Fill buffer
+		glBindBuffer(GL_ARRAY_BUFFER, cubeVBO);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+		// Link vertex attributes
+		glBindVertexArray(cubeVAO);
+		glEnableVertexAttribArray(0);
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)0);
+		glEnableVertexAttribArray(1);
+		glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)(3 * sizeof(GLfloat)));
+		glEnableVertexAttribArray(2);
+		glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)(6 * sizeof(GLfloat)));
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		glBindVertexArray(0);
+	}
+	// Render Cube
+	glBindVertexArray(cubeVAO);
+	glDrawArrays(GL_TRIANGLES, 0, 36);
+	glBindVertexArray(0);
+}
+
+void RenderScene(GLuint &shader)
+{
+	// Room cube
+	glm::mat4 model;
+	model = glm::scale(model, glm::vec3(10.0));
+	glUniformMatrix4fv(glGetUniformLocation(shader, "model"), 1, GL_FALSE, glm::value_ptr(model));
+	glDisable(GL_CULL_FACE); // Note that we disable culling here since we render 'inside' the cube instead of the usual 'outside' which throws off the normal culling methods.
+	glUniform1i(glGetUniformLocation(shader, "reverse_normals"), 1); // A small little hack to invert normals when drawing cube from the inside so lighting still works.
+	RenderCube();
+	glUniform1i(glGetUniformLocation(shader, "reverse_normals"), 0); // And of course disable it
+	glEnable(GL_CULL_FACE);
+	// Cubes
+	model = glm::mat4();
+	model = glm::translate(model, glm::vec3(4.0f, -3.5f, 0.0));
+	glUniformMatrix4fv(glGetUniformLocation(shader, "model"), 1, GL_FALSE, glm::value_ptr(model));
+	RenderCube();
+	model = glm::mat4();
+	model = glm::translate(model, glm::vec3(2.0f, 3.0f, 1.0));
+	model = glm::scale(model, glm::vec3(1.5));
+	glUniformMatrix4fv(glGetUniformLocation(shader, "model"), 1, GL_FALSE, glm::value_ptr(model));
+	RenderCube();
+	model = glm::mat4();
+	model = glm::translate(model, glm::vec3(-3.0f, -1.0f, 0.0));
+	glUniformMatrix4fv(glGetUniformLocation(shader, "model"), 1, GL_FALSE, glm::value_ptr(model));
+	RenderCube();
+	model = glm::mat4();
+	model = glm::translate(model, glm::vec3(-1.5f, 1.0f, 1.5));
+	glUniformMatrix4fv(glGetUniformLocation(shader, "model"), 1, GL_FALSE, glm::value_ptr(model));
+	RenderCube();
+	model = glm::mat4();
+	model = glm::translate(model, glm::vec3(-1.5f, 2.0f, -3.0));
+	model = glm::rotate(model, 60.0f, glm::normalize(glm::vec3(1.0, 0.0, 1.0)));
+	model = glm::scale(model, glm::vec3(1.5));
+	glUniformMatrix4fv(glGetUniformLocation(shader, "model"), 1, GL_FALSE, glm::value_ptr(model));
+	RenderCube();
+}
+
 int main(){
     
     restart_gl_log();
@@ -271,24 +413,30 @@ int main(){
     glEnableVertexAttribArray(0);
     glEnableVertexAttribArray(1);
 
-    //sun.vao = vao;
-    //merc.vao = vao;
-
     GLuint shader = create_programme_from_files(
 		"C:/Users/Gabe/Documents/Visual Studio 2015/Projects/Gallagher_370_Final/Gallagher_370_Final/MattProject/MattProject/vs.glsl",
 		"C:/Users/Gabe/Documents/Visual Studio 2015/Projects/Gallagher_370_Final/Gallagher_370_Final/MattProject/MattProject/fs.glsl"
+	);
+
+	GLuint lightShader = create_programme_from_files(
+		"C:/Users/Gabe/Documents/Visual Studio 2015/Projects/Gallagher_370_Final/Gallagher_370_Final/MattProject/MattProject/light_vs.glsl",
+		"C:/Users/Gabe/Documents/Visual Studio 2015/Projects/Gallagher_370_Final/Gallagher_370_Final/MattProject/MattProject/light_fs.glsl"
+	);
+
+	GLuint lightDepthShader = create_program_from_three_files(
+		"C:/Users/Gabe/Documents/Visual Studio 2015/Projects/Gallagher_370_Final/Gallagher_370_Final/MattProject/MattProject/Depth_vs.glsl",
+		"C:/Users/Gabe/Documents/Visual Studio 2015/Projects/Gallagher_370_Final/Gallagher_370_Final/MattProject/MattProject/Depth_fs.glsl",
+		"C:/Users/Gabe/Documents/Visual Studio 2015/Projects/Gallagher_370_Final/Gallagher_370_Final/MattProject/MattProject/Depth_gs.glsl"
 	);
 
     GLuint mercShader = create_programme_from_files(
 		"C:/Users/Gabe/Documents/Visual Studio 2015/Projects/Gallagher_370_Final/Gallagher_370_Final/MattProject/MattProject/merc_vs.glsl",
 		"C:/Users/Gabe/Documents/Visual Studio 2015/Projects/Gallagher_370_Final/Gallagher_370_Final/MattProject/MattProject/merc_fs.glsl"
 	);
-
-    //stolen from anton
     
     // input variables
     float near = 0.1f; //clipping plane
-    float far = 200.0f; //clipping plane
+    float far = 100.0f; //clipping plane
     float fov = 67.0f * ONE_DEG_IN_RAD; // 67 degrees to radians
     float aspect = (float)g_gl_width / (float)g_gl_height;
 
@@ -311,10 +459,9 @@ int main(){
     float cam_yaw = 0.0f;
     mat4 T = translate(identity_mat4(), vec3 (-cam_pos[0], -cam_pos[1], -cam_pos[2]));
     mat4 R = rotate_y_deg(identity_mat4(), -cam_yaw);
-    mat4 view_mat = R*T;
+    mat4 view_mat = R * T;
 
-    //mat4 model_mat = identity_mat4();
-
+    //Sun shader definitions
     glUseProgram(shader);
     int view_mat_location = glGetUniformLocation(shader, "view_mat");
     glUniformMatrix4fv(view_mat_location, 1, GL_FALSE, view_mat.m);
@@ -325,6 +472,7 @@ int main(){
     int sun_mat_location = glGetUniformLocation(shader, "sun_model_mat");
     glUniformMatrix4fv(sun_mat_location, 1, GL_FALSE, sun.model_mat.m);
 
+	//Mercury shader definitions
     glUseProgram(mercShader);
     int merc_view_mat_location = glGetUniformLocation(mercShader, "view_mat");
     glUniformMatrix4fv(merc_view_mat_location, 1, GL_FALSE, view_mat.m);
@@ -337,29 +485,143 @@ int main(){
     glCullFace(GL_BACK);
     glFrontFace(GL_CCW);
 
+	////////////////////////////////////////////////////////////////////////
+	//Start of Rendering scene with cubemap to create central lightsource.//
+	//Gabe's code starts here. Going to come back later to try and bring  //
+	//all of this to a separate header file and #include it in the project//
+	////////////////////////////////////////////////////////////////////////
+
+	//Light Source
+	glm::vec3 lightPos(0.0f, 0.0f, 0.0f);
+
+	//Configure CubeMap
+	GLuint depthCubeMap = 0;
+	const GLuint shadowWidth = g_gl_width, shadowHeight = g_gl_height;
+	GLuint depthMapFBO = 0; //Depth Map Fram Buffer Object
+
+	//generate cubemap
+	glGenTextures(1, &depthMapFBO);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, depthCubeMap);
+
+	for (GLuint i = 0; i < 6; i++)
+	{
+		glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_DEPTH_COMPONENT, 
+			shadowWidth, shadowHeight, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+	}
+
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+	//Attach cubemap as depth map
+	glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
+	glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, depthCubeMap, 0);
+
+	//currently causes screen to render black. Enable when light source is properly
+	//implemented
+
+	/*glDrawBuffer(GL_NONE);
+	glReadBuffer(GL_NONE);
+	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+	{
+		std::cout << "Framebuffer not complete\n";
+	}
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);*/
 
     while(!glfwWindowShouldClose(g_window)){
 
         _update_fps_counter (g_window);
         double current_seconds = glfwGetTime();
 
-        sun.model_mat = rotate_y_deg(identity_mat4(), current_seconds*50.0f);
-        merc.model_mat = rotate_y_deg(identity_mat4(), current_seconds*15.0f) * 
-            translate(identity_mat4(), vec3(-1.5, 0.0, 0.0)) *
-            scale(identity_mat4(), vec3(0.2, 0.2, 0.2));
+		//Pulled from earlier in the program.
+		//	input variables
+		//	float near = 0.1f; //clipping plane
+		//	float far = 100.0f; //clipping plane
+		//	float fov = 67.0f * ONE_DEG_IN_RAD; // 67 degrees to radians
+		//Using same values used to render shapes may cause bugs. check here first.
 
-        //and then the rest of the solar system objects
+		//Create depth cubemap transformation matrices based on previous input variables
+		glm::mat4 shadowProjection = glm::perspective(fov, aspect, near, far);
+		vector<glm::mat4> shadowTransforms;
+
+		//light space transformation matrix for each of the 6 spaces in the cubemap, each containing a projection and view matrix
+		shadowTransforms.push_back(shadowProjection * glm::lookAt(lightPos, lightPos + glm::vec3(1.0, 0.0, 0.0), glm::vec3(0.0, -1.0, 0.0)));
+		shadowTransforms.push_back(shadowProjection * glm::lookAt(lightPos, lightPos + glm::vec3(-1.0, 0.0, 0.0), glm::vec3(0.0, -1.0, 0.0)));
+		shadowTransforms.push_back(shadowProjection * glm::lookAt(lightPos, lightPos + glm::vec3(0.0, 1.0, 0.0), glm::vec3(0.0, 0.0, 1.0)));
+		shadowTransforms.push_back(shadowProjection * glm::lookAt(lightPos, lightPos + glm::vec3(0.0, -1.0, 0.0), glm::vec3(0.0, 0.0, 1.0)));
+		shadowTransforms.push_back(shadowProjection * glm::lookAt(lightPos, lightPos + glm::vec3(0.0, 0.0, 1.0), glm::vec3(0.0, -1.0, 0.0)));
+		shadowTransforms.push_back(shadowProjection * glm::lookAt(lightPos, lightPos + glm::vec3(0.0, 0.0, -1.0), glm::vec3(0.0, -1.0, 0.0)));
+
+		//Render to depth cubemap
+		glViewport(0, 0, g_gl_width, g_gl_height);
+		glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
+		glClear(GL_DEPTH_BUFFER_BIT);
+		//ConfigureShaderAndMatrices();
+		glUseProgram(lightDepthShader);
+
+		for (GLuint i = 0; i < 6; i++)
+		{
+			glUniformMatrix4fv(glGetUniformLocation(lightDepthShader, ("shadowMatrices[" + to_string(i) + "]").c_str()),
+				1, GL_FALSE, glm::value_ptr(shadowTransforms[i]));
+		};
+
+		glUniform1f(glGetUniformLocation(lightDepthShader, "far_plane"), far);
+		glUniform3fv(glGetUniformLocation(lightDepthShader, "lightPos"), 1, &lightPos[0]);
+		RenderScene(lightDepthShader);
+		//END of render to depth cubemap
+
+		////Begin render scene as normal with shadow mapping (using depth cubemap)
+		glViewport(0, 0, g_gl_width, g_gl_height);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        glViewport(0, 0, g_gl_width, g_gl_height);
         glUseProgram(shader);
-        //glUniformMatrix4fv(model_mat_location, 1, GL_FALSE, model_mat.m);
+
+		///* This code relates to camera.h, glad.h, and khrplatform.h, which were throwing unresolved external
+		//symbol errors which I don't want to deal with
+
+		//glm::mat4 projection = glm::perspective(camera.Zoom, (float)g_gl_width / (float)g_gl_height, 0.1f, 100.0f);
+		//glm::mat4 view = camera.GetViewMatrix();
+		//glUniformMatrix4fv(glGetUniformLocation(shader, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
+		//glUniformMatrix4fv(glGetUniformLocation(shader, "view"), 1, GL_FALSE, glm::value_ptr(view));*/
+
+		////Set light uniforms
+		//glUniform3fv(glGetUniformLocation(shader, "lightPos"), 1, &lightPos[0]);
+		//glUniform3fv(glGetUniformLocation(shader, "viewPos"), 1, &camera[0]);
+
+		////Bind cube map
+		glBindTexture(GL_TEXTURE_CUBE_MAP, depthCubeMap);
+		RenderScene(shader);
+
+		////////////////////////////////////////////////////////////////////////
+		// Draw Sun, planets, and possibly moons, Saturns rings, and asteroids//
+		// if included. AKA Draw Bodies.									  //
+		// Gabe's code ends here.											  //
+		////////////////////////////////////////////////////////////////////////
+
+		//init planets
+		sun.model_mat = rotate_y_deg(identity_mat4(), current_seconds*50.0f);
+		merc.model_mat = rotate_y_deg(identity_mat4(), current_seconds*15.0f) *
+			translate(identity_mat4(), vec3(-1.5, 0.0, 0.0)) *
+			scale(identity_mat4(), vec3(0.2, 0.2, 0.2));
+        
+		//Draw Sun
         glUniformMatrix4fv(sun_mat_location, 1, GL_FALSE, sun.model_mat.m);
         glBindVertexArray(vao);
         glDrawArrays(GL_TRIANGLES, 0, numPoints);
+
+		//Draw Mercury
         glUseProgram(mercShader);
         glUniformMatrix4fv(merc_mat_location, 1, GL_FALSE, merc.model_mat.m);
         glBindVertexArray(vao);
         glDrawArrays(GL_TRIANGLES, 0, numPoints);
+
+		//////////////////////////////////////////////////////////////////////////
+		//End draw bodies.														//
+		//////////////////////////////////////////////////////////////////////////
+
+
+
         glfwPollEvents();
         if(GLFW_PRESS == glfwGetKey(g_window, GLFW_KEY_ESCAPE)){
             glfwSetWindowShouldClose(g_window, 1);
