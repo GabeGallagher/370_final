@@ -18,6 +18,7 @@
 #include "stb_image.h"
 #include "obj_model.h"
 #include <vector>
+#include <limits>
 
 using namespace std;
 
@@ -26,53 +27,8 @@ int g_gl_width = 1600;
 int g_gl_height = 900;
 GLFWwindow* g_window = NULL;
 
-bool load_texture(const char *file_name, GLuint *tex ) {
-	int x, y, n;
-	int force_channels = 4;
-	unsigned char *image_data = stbi_load( file_name, &x, &y, &n, force_channels );
-	if ( !image_data ) {
-		fprintf( stderr, "ERROR: could not load %s\n", file_name );
-		return false;
-	}
-	// NPOT check
-	if ( ( x & ( x - 1 ) ) != 0 || ( y & ( y - 1 ) ) != 0 ) {
-		fprintf( stderr, "WARNING: texture %s is not power-of-2 dimensions\n",
-						 file_name );
-	}
-
-	int width_in_bytes = x * 4;
-	unsigned char *top = NULL;
-	unsigned char *bottom = NULL;
-	unsigned char temp = 0;
-	int half_height = y / 2;
-
-	for ( int row = 0; row < half_height; row++ ) {
-		top = image_data + row * width_in_bytes;
-		bottom = image_data + ( y - row - 1 ) * width_in_bytes;
-		for ( int col = 0; col < width_in_bytes; col++ ) {
-			temp = *top;
-			*top = *bottom;
-			*bottom = temp;
-			top++;
-			bottom++;
-		}
-	}
-
-	glGenTextures(1, tex);
-	glActiveTexture(0);
-	glBindTexture(GL_TEXTURE_2D, *tex);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, x, y, 0, GL_RGBA, GL_UNSIGNED_BYTE, image_data);
-
-	glGenerateMipmap( GL_TEXTURE_2D );
-	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE );
-	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE );
-	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
-	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR );
-	GLfloat max_aniso = 0.0f;
-	glGetFloatv( GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &max_aniso );
-	// set the maximum!  glTexParameterf( GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, max_aniso ); 
-	return true;
-}
+float floatMax = numeric_limits<float>::max();
+float floatMin = numeric_limits<float>::min();
 
 int countLabel(std::string mName, char const *label){
     int numLab = 0;
@@ -99,27 +55,22 @@ void load_texture_coords(string fileName, GLfloat* texs) {
   char buf[128];
   char const* label = "vt";
   float a, b;
-  float maxX = -100000000.0f;
-  float maxY = -100000000.0f;
-  float minX = 100000000.0f;
-  float minY = 100000000.0f;
+
+
+  float maxX = floatMin; 
+  float maxY = floatMin;
+  float minX = floatMax;
+  float minY = floatMax;
 
   while (fscanf(stream, "%s", buf) != EOF) {
     if (strcmp(buf, label) == 0) {
       fscanf(stream, "%f %f\n", &a, &b);
-            if(a > maxX){
-                maxX = a;
-            }
-            if(a < minX){
-                minX = a;
-            }
-            if(b > maxY){
-                maxY = b;
-            }
-            if(b < minY){
-                minY = b;
-            }
-            
+      maxX = max(a, maxX);
+      minX = min(a, minX);
+      
+      maxY = max(b, maxY);
+      minY = min(b, minY);
+      
       texs[2 * numCoords] = a * 1.0;
       texs[2 * numCoords + 1] = b * 1.0;
       numCoords++;
@@ -136,37 +87,29 @@ void loadVerts(std::string mName, GLfloat verts[]){
     FILE *stream;
     stream = fopen(mName.c_str(), "r");
 
-    char buf[128];
-    float maxX = -100000000.0f;
-    float maxY = -100000000.0f;
-    float maxZ = -100000000.0f;
-    float minX = 100000000.0f;
-    float minY = 100000000.0f;
-    float minZ = 100000000.0f;
+    float maxX = floatMin;
+    float maxY = floatMin;
+    float maxZ = floatMin;
+
+    float minX = floatMax;
+    float minY = floatMax;
+    float minZ = floatMax;
+
     float a, b, c;
     char const *label = "v";
+    char buf[128];
     while(fscanf(stream, "%s", buf) != EOF){
         if(strcmp(buf,label) == 0){
             fscanf(stream, "%f %f %f\n", &a, &b, &c);
             
-            if(a > maxX){
-                maxX = a;
-            }
-            if(a < minX){
-                minX = a;
-            }
-            if(b > maxY){
-                maxY = b;
-            }
-            if(b < minY){
-                minY = b;
-            }
-            if(c > maxZ){
-                maxZ = c;
-            }
-            if(c < minZ){
-                minZ = c;
-            }
+            maxX = max(a, maxX);
+            minX = min(a, minX);
+
+            maxY = max(b, maxY);
+            minY = min(b, minY);
+
+            maxZ = max(c, maxZ);
+            minZ = min(c, minZ);
             
             verts[3*numvert + 0] = 1.0*a;
             verts[3*numvert + 1] = 1.0*b;
@@ -245,7 +188,8 @@ void computeFaceNormals(GLfloat faceNormals[], GLfloat verts[], GLint faces[], i
 	
 }
 
-void computeVertNormals(GLfloat normals[], GLfloat verts[], int numVerts, GLint faces[], int numFaces, GLfloat faceNormals[]){
+void computeVertNormals(GLfloat normals[], GLfloat verts[], int numVerts, GLint faces[], int numFaces, 
+    GLfloat faceNormals[]){
   cout << "Computing vert norms" << endl;
 	for (int i = 0; i < numVerts; i++){
 		float avgX = 0.0;
@@ -356,10 +300,6 @@ int main(){
     celestials.push_back(uranus_obj);
     celestials.push_back(neptune_obj);
 
-    int coord_count = countLabel(modelName, "vt");
-    GLfloat* tex_coords = new GLfloat[coord_count * 2];
-    load_texture_coords(modelName, tex_coords);
-
     GLuint points_vbo;
     glGenBuffers(1, &points_vbo);
     glBindBuffer(GL_ARRAY_BUFFER, points_vbo);
@@ -369,11 +309,6 @@ int main(){
     glGenBuffers(1, &normals_vbo);
     glBindBuffer(GL_ARRAY_BUFFER, normals_vbo);
     glBufferData(GL_ARRAY_BUFFER, 3 * numPoints * sizeof(GLfloat), normals, GL_STATIC_DRAW);
-
-    GLuint tex_vbo;
-    glGenBuffers(1, &tex_vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, tex_vbo);
-    glBufferData(GL_ARRAY_BUFFER, 2 * numPoints * sizeof(GLfloat), tex_coords, GL_STATIC_DRAW);
 
     GLuint vao;
     glGenVertexArrays(1, &vao);
@@ -385,22 +320,20 @@ int main(){
     glBindBuffer(GL_ARRAY_BUFFER, normals_vbo);
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, NULL);
 
-    glBindBuffer(GL_ARRAY_BUFFER, tex_vbo);
-    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 0, NULL);
 
     glEnableVertexAttribArray(0);
     glEnableVertexAttribArray(1);
-    glEnableVertexAttribArray(2);
 
-    sun_obj->set_shader(create_programme_from_files("vs.glsl", "fs.glsl"));
-    merc_obj->set_shader(create_programme_from_files("merc_vs.glsl", "merc_fs.glsl"));
-    venus_obj->set_shader(create_programme_from_files("merc_vs.glsl", "venus_fs.glsl"));
-    earth_obj->set_shader(create_programme_from_files("merc_vs.glsl", "earth_fs.glsl"));
-    mars_obj->set_shader(create_programme_from_files("merc_vs.glsl", "mars_fs.glsl"));
-    jupiter_obj->set_shader(create_programme_from_files("merc_vs.glsl", "jupiter_fs.glsl"));
-    saturn_obj->set_shader(create_programme_from_files("merc_vs.glsl", "saturn_fs.glsl"));
-    uranus_obj->set_shader(create_programme_from_files("merc_vs.glsl", "uranus_fs.glsl"));
-    neptune_obj->set_shader(create_programme_from_files("merc_vs.glsl", "neptune_fs.glsl"));
+    // Load in all the shader files.
+    sun_obj->set_shader(create_programme_from_files("shaders/vs.glsl", "shaders/fs.glsl"));
+    merc_obj->set_shader(create_programme_from_files("shaders/merc_vs.glsl", "shaders/merc_fs.glsl"));
+    venus_obj->set_shader(create_programme_from_files("shaders/merc_vs.glsl", "shaders/venus_fs.glsl"));
+    earth_obj->set_shader(create_programme_from_files("shaders/merc_vs.glsl", "shaders/earth_fs.glsl"));
+    mars_obj->set_shader(create_programme_from_files("shaders/merc_vs.glsl", "shaders/mars_fs.glsl"));
+    jupiter_obj->set_shader(create_programme_from_files("shaders/merc_vs.glsl", "shaders/jupiter_fs.glsl"));
+    saturn_obj->set_shader(create_programme_from_files("shaders/merc_vs.glsl", "shaders/saturn_fs.glsl"));
+    uranus_obj->set_shader(create_programme_from_files("shaders/merc_vs.glsl", "shaders/uranus_fs.glsl"));
+    neptune_obj->set_shader(create_programme_from_files("shaders/merc_vs.glsl", "shaders/neptune_fs.glsl"));
 
     //stolen from anton
     
@@ -445,9 +378,6 @@ int main(){
 
       model->set_mat_location(mat_location);
     }
-
-    GLuint tex;
-    (load_texture( "mercurymap.jpg", &tex));
 
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
@@ -498,7 +428,7 @@ int main(){
         _update_fps_counter (g_window);
         double current_seconds = glfwGetTime();
 
-        // Iterate through and update all the celestial bodies.
+        // Iterate through and update all the celestial bodies' positions.
         for (ObjModel* model : celestials) {
           model->update(current_seconds);
         }
@@ -507,6 +437,7 @@ int main(){
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glViewport(0, 0, g_gl_width, g_gl_height);
 
+        // Iterate throught celestials and draw them.
         for (ObjModel* model : celestials) {
           // Swap to the model's shader
           glUseProgram(model->get_shader());
@@ -523,6 +454,7 @@ int main(){
 
         glfwSwapBuffers(g_window);
     }
+
     glfwTerminate();
     return 0;
 }
