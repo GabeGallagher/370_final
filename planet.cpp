@@ -1,7 +1,10 @@
-/***************
- * Make Planets*
- * matt h      *
- * ************/
+/********************
+ *	Make Planets	*
+ *					*
+ *	Matt Hivner		*
+ *	Gabe Gallagher	*
+ *	Austin Ray		*
+ * ******************/
 
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
