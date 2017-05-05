@@ -270,36 +270,6 @@ bool create_programme (GLuint vert, GLuint frag, GLuint* programme) {
 	return true;
 }
 
-bool create_programme_two(GLuint vert, GLuint frag, GLuint gs, GLuint* programme) {
-	*programme = glCreateProgram();
-	gl_log(
-		"created programme %u. attaching shaders %u, %u, and %u...\n",
-		*programme, vert, frag, gs
-	);
-	glAttachShader(*programme, vert);
-	glAttachShader(*programme, frag);
-	glAttachShader(*programme, gs);
-	// link the shader programme. if binding input attributes do that before link
-	glLinkProgram(*programme);
-	GLint params = -1;
-	glGetProgramiv(*programme, GL_LINK_STATUS, &params);
-	if (GL_TRUE != params) {
-		gl_log_err(
-			"ERROR: could not link shader programme GL index %u\n",
-			*programme
-		);
-		print_programme_info_log(*programme);
-		return false;
-	}
-	assert(is_programme_valid(*programme));
-	// delete shaders here to free memory
-	glDeleteShader(vert);
-	glDeleteShader(frag);
-	glDeleteShader(gs);
-
-	return true;
-}
-
 GLuint create_programme_from_files (
 	const char* vert_file_name, const char* frag_file_name
 ) {
@@ -307,15 +277,5 @@ GLuint create_programme_from_files (
 	assert (create_shader (vert_file_name, &vert, GL_VERTEX_SHADER));
 	assert (create_shader (frag_file_name, &frag, GL_FRAGMENT_SHADER));
 	assert (create_programme (vert, frag, &programme));
-	return programme;
-}
-
-GLuint create_program_from_three_files(const char* vert_file_name, const char* frag_file_name, const char* gs_file_name)
-{
-	GLuint vert, gs, frag, programme;
-	assert(create_shader(vert_file_name, &vert, GL_VERTEX_SHADER));
-	assert(create_shader(frag_file_name, &frag, GL_FRAGMENT_SHADER));
-	assert(create_shader(gs_file_name, &gs, GL_GEOMETRY_SHADER));
-	assert(create_programme_two(vert, frag, gs, &programme));
 	return programme;
 }
