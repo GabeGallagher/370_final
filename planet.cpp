@@ -35,6 +35,16 @@ GLFWwindow* g_window = NULL;
 float floatMax = numeric_limits<float>::max();
 float floatMin = numeric_limits<float>::min();
 
+/*
+	Reads object file which contains the model to be imported into the scene. In the case of this
+	project, the object file will always be a simple sphere. The Sun and each planet within the
+	scene takes the same object file, and simply colors, scales, and translates it differently
+	in order to simulate the model solar system.
+
+	@params: string mName, char const *label;
+
+	return: int numLab;
+*/
 int countLabel(std::string mName, char const *label){
     int numLab = 0;
     FILE *stream;
@@ -50,41 +60,11 @@ int countLabel(std::string mName, char const *label){
     return numLab;
 }
 
-void load_texture_coords(string fileName, GLfloat* texs) {
-  printf("Loading texture coordinates\n");
-  int numCoords = 0;
+/*
+	Method for loading vertex data for the vertex shader stage in the graphics pipeline
 
-  FILE* stream;
-  stream = fopen(fileName.c_str(), "r");
-
-  char buf[128];
-  char const* label = "vt";
-  float a, b;
-
-
-  float maxX = floatMin; 
-  float maxY = floatMin;
-  float minX = floatMax;
-  float minY = floatMax;
-
-  while (fscanf(stream, "%s", buf) != EOF) {
-    if (strcmp(buf, label) == 0) {
-      fscanf(stream, "%f %f\n", &a, &b);
-      maxX = max(a, maxX);
-      minX = min(a, minX);
-      
-      maxY = max(b, maxY);
-      minY = min(b, minY);
-      
-      texs[2 * numCoords] = a * 1.0;
-      texs[2 * numCoords + 1] = b * 1.0;
-      numCoords++;
-    }
-  }
-
-  fclose(stream);
-}
-
+	@params: string mName, GLfloat verts[];
+*/
 void loadVerts(std::string mName, GLfloat verts[]){
     printf("Loading vertices\n");
     int numvert=0;
@@ -145,6 +125,11 @@ void loadVerts(std::string mName, GLfloat verts[]){
     printf("Done loading vertices\n");
 }
 
+/*
+	Method for loading primitive data for the primitive processing stage in the graphics pipeline
+
+	@params: string mName, GLint faces[]
+*/
 void loadFaces(std::string mName, GLint faces[]){
     printf("Loading faces...\n");
     int numF = 0;
@@ -169,6 +154,11 @@ void loadFaces(std::string mName, GLint faces[]){
     printf("Done loading faces\n");
 }
 
+/*
+	Computes normals for each face in object. This data is essential for building the lighting simulation
+
+	@params: GLfloat faceNormals[], GLfloat verts[], GLint faces[], int numFaces
+*/
 void computeFaceNormals(GLfloat faceNormals[], GLfloat verts[], GLint faces[], int numFaces){
 	for (int i = 0; i < numFaces; i++){
 		int idx1 = faces[i*3 + 0];
@@ -194,6 +184,11 @@ void computeFaceNormals(GLfloat faceNormals[], GLfloat verts[], GLint faces[], i
 	
 }
 
+/*
+	Computes normals for each vertex in object. This data is essential for building the lighting simulation
+
+	@params: GLfloat normals[], GLfloat verts[], int numVerts, GLint faces[], int numFaces, GLfloat faceNormals[]
+*/
 void computeVertNormals(GLfloat normals[], GLfloat verts[], int numVerts, GLint faces[], int numFaces, 
     GLfloat faceNormals[]){
   cout << "Computing vert norms" << endl;
@@ -257,7 +252,8 @@ int main(){
     GLfloat* points = new GLfloat[9 * numFaces];
     GLfloat* normals = new GLfloat[9 * numFaces];
 
-	  for (int i = 0; i < numFaces; i++) {
+	//Stores points and normals data for each object in scene
+	for (int i = 0; i < numFaces; i++) {
           int idx1 = faces[3*i + 0];
           int idx2 = faces[3*i + 1];
           int idx3 = faces[3*i + 2];
@@ -281,7 +277,7 @@ int main(){
           normals[i*9 + 8] = vertNormals[3*idx3+2];
     }
 
-	  int numPoints = 3*numFaces;
+	int numPoints = 3 * numFaces;
 
     // Create the pointers for the celestial objects
     ObjModel* sun_obj = new ObjModel(points, faces, NULL, numPoints, numFaces, 0);
@@ -306,16 +302,19 @@ int main(){
     celestials.push_back(uranus_obj);
     celestials.push_back(neptune_obj);
 
+	//Generate and bind vertex buffer object for planets
     GLuint points_vbo;
     glGenBuffers(1, &points_vbo);
     glBindBuffer(GL_ARRAY_BUFFER, points_vbo);
     glBufferData(GL_ARRAY_BUFFER, 3 * numPoints * sizeof(GLfloat), points, GL_STATIC_DRAW);
 
+	//Generate and bind vertex buffer object for lighting simulation
     GLuint normals_vbo;
     glGenBuffers(1, &normals_vbo);
     glBindBuffer(GL_ARRAY_BUFFER, normals_vbo);
     glBufferData(GL_ARRAY_BUFFER, 3 * numPoints * sizeof(GLfloat), normals, GL_STATIC_DRAW);
 
+	//Generate and bind vertex array object
     GLuint vao;
     glGenVertexArrays(1, &vao);
     glBindVertexArray(vao);
@@ -325,7 +324,6 @@ int main(){
 
     glBindBuffer(GL_ARRAY_BUFFER, normals_vbo);
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, NULL);
-
 
     glEnableVertexAttribArray(0);
     glEnableVertexAttribArray(1);
@@ -340,8 +338,6 @@ int main(){
     saturn_obj->set_shader(create_programme_from_files("shaders/merc_vs.glsl", "shaders/saturn_fs.glsl"));
     uranus_obj->set_shader(create_programme_from_files("shaders/merc_vs.glsl", "shaders/uranus_fs.glsl"));
     neptune_obj->set_shader(create_programme_from_files("shaders/merc_vs.glsl", "shaders/neptune_fs.glsl"));
-
-    //stolen from anton
     
     // input variables
     float near = 0.1f; //clipping plane
@@ -370,6 +366,7 @@ int main(){
     mat4 R = rotate_x_deg(identity_mat4(), -cam_yaw);
     mat4 view_mat = R*T;
 
+	//Uses shader program for each object to literally generate the object in frame
     for (ObjModel* model : celestials) {
       glUseProgram(model->get_shader());
 
@@ -393,42 +390,56 @@ int main(){
     double earth_distance = -3.5;
     float earth_speed = 30.0f;
 
-    // Celestials configuration
+    //Sets the size, orbital speed, and orbit of each planet in the model, except the Sun,
+	//which doesn't have an orbital speed and contains a null orbit). Each variable, size, 
+	//orbital speed, and orbit are based off of that of Earth, which is the same relative
+	//scale used by NASA.
+
+	//the Sun
     sun_obj->set_rot_speed(0.0, 1, 0.0);
     sun_obj->set_translation(0.0, 0.0, 0.0);
 
+	//Mercury
     merc_obj->set_scale(earth_size * 0.383, earth_size * 0.383, earth_size * 0.383);
     merc_obj->set_rot_speed(0.0, 1.59 * earth_speed, 0.0);
     merc_obj->set_translation(earth_distance * 0.387, 0.0, 0.0);
 
+	//Venus
     venus_obj->set_scale(earth_size * 0.949, earth_size * 0.949, earth_size * 0.949);
     venus_obj->set_rot_speed(0.0, 1.18 * earth_speed, 0.0);
     venus_obj->set_translation(earth_distance * 0.723, 0.0, 0.0);
 
+	//Earth
     earth_obj->set_scale(earth_size, earth_size, earth_size);
     earth_obj->set_rot_speed(0.0, earth_speed, 0.0);
     earth_obj->set_translation(earth_distance, 0.0, 0.0);
 
+	//Mars
     mars_obj->set_scale(earth_size * 0.532, earth_size * 0.532, earth_size * 0.532);
     mars_obj->set_rot_speed(0.0, 0.808 * earth_speed, 0.0);
     mars_obj->set_translation(earth_distance * 1.52, 0.0, 0.0);
 
+	//Juptier
     jupiter_obj->set_scale(earth_size * 11.21, earth_size * 11.21, earth_size * 11.21);
     jupiter_obj->set_rot_speed(0.0, 0.439 * earth_speed, 0.0);
     jupiter_obj->set_translation(earth_distance * 5.2, 0.0, 0.0);
 
+	//Saturn
     saturn_obj->set_scale(earth_size * 9.45, earth_size * 9.45, earth_size * 9.45);
     saturn_obj->set_rot_speed(0.0, 0.325 * earth_speed, 0.0);
     saturn_obj->set_translation(earth_distance * 9.58, 0.0, 0.0);
     
+	//Uranus
     uranus_obj->set_scale(earth_size * 4.01, earth_size * 4.01, earth_size * 4.01);
     uranus_obj->set_rot_speed(0.0, 0.228 * earth_speed, 0.0);
     uranus_obj->set_translation(earth_distance * 19.20, 0.0, 0.0);
 
+	//Neptune
     neptune_obj->set_scale(earth_size * 3.88, earth_size * 3.88, earth_size * 3.88);
     neptune_obj->set_rot_speed(0.0, 0.182 * earth_speed, 0.0);
     neptune_obj->set_translation(earth_distance * 30.05, 0.0, 0.0);
 
+	//Draw loop
     while(!glfwWindowShouldClose(g_window)){
 
         _update_fps_counter (g_window);
@@ -461,6 +472,7 @@ int main(){
         glfwSwapBuffers(g_window);
     }
 
+	//terminate simulation
     glfwTerminate();
     return 0;
 }
