@@ -6,6 +6,28 @@
  *	Austin Ray		*
  * ******************/
 
+/*
+	This is the final project from our computer graphics course from spring semester 2017. The basic
+	idea of the project is to create a model of the solar system using OpenGL and the glew, glfw, and
+	glm libraries. The model includes the Sun, and the planets Mercury, Venus, Earth, Mars, Jupiter,
+	Saturn, Neptune, and Uranus. (Gabe) If it was up to me, we would have included Pluto. Screw you
+	Matt, it's a dwarf planet! Just read some NASA: 
+	https://www.nasa.gov/audience/forstudents/k-4/stories/nasa-knows/what-is-pluto-k4.html. I will,
+	however, concede that if we wanted to include pluto at any kind of realistic scale, it would have
+	been too small and too far out to be visible in the scene. So, I will just pretend that it's there
+	(/Gabe).
+
+	The core goal of the project was to simulate the way the light striking the planets changes as they
+	rotate about the Sun (ie, simulating day/night cycles on a planetary scale). This effect is visible
+	on the smaller planets which are closer to the Sun: Venus, Earth, and Mars. The dark side of the
+	other planets is not visible in the simulation, and zooming out to view them would render the smaller
+	planets invisible.
+
+	Can you name all of the planets?
+
+	Enjoy!!
+*/
+
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 #include <stdio.h>
@@ -222,6 +244,7 @@ void computeVertNormals(GLfloat normals[], GLfloat verts[], int numVerts, GLint 
 	}
 }
 
+//planet.cpp serves as the main file in the project
 int main(){
     restart_gl_log();
     start_gl();
@@ -390,10 +413,12 @@ int main(){
     double earth_distance = -3.5;
     float earth_speed = 30.0f;
 
-    //Sets the size, orbital speed, and orbit of each planet in the model, except the Sun,
-	//which doesn't have an orbital speed and contains a null orbit). Each variable, size, 
-	//orbital speed, and orbit are based off of that of Earth, which is the same relative
-	//scale used by NASA.
+	/*
+		Sets the size, orbital speed, and orbit of each planet in the model, except the Sun,
+		which doesn't have an orbital speed and contains a null orbit). Each variable, size, 
+		orbital speed, and orbit are based off of that of Earth, which is the same relative
+		scale used by NASA.
+	*/
 
 	//the Sun
     sun_obj->set_rot_speed(0.0, 1, 0.0);
